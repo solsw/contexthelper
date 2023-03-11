@@ -1,2 +1,2 @@
-// Package contexthelper contains 'context' package helpers.
+// Package contexthelper contains [context] package helpers.
 package contexthelper

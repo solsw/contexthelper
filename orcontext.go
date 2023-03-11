@@ -7,13 +7,13 @@ import (
 	"time"
 )
 
-// ContextOrContext returns context.Context combining two context.Contexts with 'or' semantics.
+// ContextOrContext returns [context.Context] combining two contexts with 'or' semantics.
 func ContextOrContext(ctx1, ctx2 context.Context) context.Context {
 	return NewOrContext(ctx1, ctx2)
 }
 
-// OrContext combines two context.Contexts with 'or' semantics (see Done method).
-// OrContext implements the context.Context interface.
+// OrContext combines two contexts with 'or' semantics (see Done method).
+// OrContext implements the [context.Context] interface.
 type OrContext struct {
 	Ctx1, Ctx2   context.Context
 	onceDeadline sync.Once
@@ -25,7 +25,7 @@ type OrContext struct {
 	err          error
 }
 
-// check that OrContext implements the context.Context interface
+// check that OrContext implements the [context.Context] interface
 var _ context.Context = &OrContext{}
 
 // NewOrContext returns a new OrContext.
@@ -33,7 +33,7 @@ func NewOrContext(ctx1, ctx2 context.Context) *OrContext {
 	return &OrContext{Ctx1: ctx1, Ctx2: ctx2}
 }
 
-// Deadline implements the context.Context.Deadline method.
+// Deadline implements the [context.Context.Deadline] method.
 //
 // If both deadlines are set, the earliest one is returned.
 func (cc *OrContext) Deadline() (time.Time, bool) {
@@ -66,9 +66,9 @@ func orDone(done1, done2 <-chan struct{}, done chan<- struct{}) {
 	close(done)
 }
 
-// Done implements the context.Context.Done method.
+// Done implements the [context.Context.Done] method.
 //
-// The returned channel is closed when either one of Contexts' Done channels is closed.
+// The returned channel is closed when either one of contexts' Done channels is closed.
 func (cc *OrContext) Done() <-chan struct{} {
 	cc.onceDone.Do(func() {
 		if cc.Ctx1.Done() == nil && cc.Ctx2.Done() == nil {
@@ -80,10 +80,10 @@ func (cc *OrContext) Done() <-chan struct{} {
 	return cc.done
 }
 
-// Err implements the context.Context.Err method.
+// Err implements the [context.Context.Err] method.
 //
-// If both Contexts' Errs are nil, nil is returned.
-// Otherwise, an error that wraps non-nil Contexts' Errs is returned.
+// If both contexts' Errs are nil, nil is returned.
+// Otherwise an error that wraps non-nil contexts' Errs is returned.
 func (cc *OrContext) Err() error {
 	select {
 	case <-cc.Done():
@@ -94,9 +94,9 @@ func (cc *OrContext) Err() error {
 	}
 }
 
-// Value implements the context.Context.Value method.
+// Value implements the [context.Context.Value] method.
 //
-// The method returns nil. To get values from Contexts call corresponding Value methods directly.
+// The method returns nil.
 func (*OrContext) Value(key any) any {
 	return nil
 }

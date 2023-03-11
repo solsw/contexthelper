@@ -7,13 +7,13 @@ import (
 	"time"
 )
 
-// ContextAndContext returns context.Context combining two context.Contexts with 'and' semantics.
+// ContextAndContext returns [context.Context] combining two contexts with 'and' semantics.
 func ContextAndContext(ctx1, ctx2 context.Context) context.Context {
 	return NewAndContext(ctx1, ctx2)
 }
 
-// AndContext combines two context.Contexts with 'and' semantics (see Done method).
-// AndContext implements the context.Context interface.
+// AndContext combines two contexts with 'and' semantics (see Done method).
+// AndContext implements the [context.Context] interface.
 type AndContext struct {
 	Ctx1, Ctx2   context.Context
 	onceDeadline sync.Once
@@ -25,7 +25,7 @@ type AndContext struct {
 	err          error
 }
 
-// check that AndContext implements the context.Context interface
+// check that AndContext implements the [context.Context] interface
 var _ context.Context = &AndContext{}
 
 // NewAndContext returns a new AndContext.
@@ -33,7 +33,7 @@ func NewAndContext(ctx1, ctx2 context.Context) *AndContext {
 	return &AndContext{Ctx1: ctx1, Ctx2: ctx2}
 }
 
-// Deadline implements the context.Context.Deadline method.
+// Deadline implements the [context.Context.Deadline] method.
 //
 // If both deadlines are set, the latest one is returned.
 func (cc *AndContext) Deadline() (time.Time, bool) {
@@ -74,9 +74,9 @@ func andDone(done1, done2 <-chan struct{}, done chan<- struct{}) {
 	close(done)
 }
 
-// Done implements the context.Context.Done method.
+// Done implements the [context.Context.Done] method.
 //
-// The returned channel is closed when both Contexts' Done channels are closed.
+// The returned channel is closed when both contexts' Done channels are closed.
 func (cc *AndContext) Done() <-chan struct{} {
 	cc.onceDone.Do(func() {
 		if cc.Ctx1.Done() == nil && cc.Ctx2.Done() == nil {
@@ -88,10 +88,10 @@ func (cc *AndContext) Done() <-chan struct{} {
 	return cc.done
 }
 
-// Err implements the context.Context.Err method.
+// Err implements the [context.Context.Err] method.
 //
-// If both Contexts' Errs are nil, nil is returned.
-// Otherwise, an error that wraps non-nil Contexts' Errs is returned.
+// If both contexts' Errs are nil, nil is returned.
+// Otherwise an error that wraps non-nil contexts' Errs is returned.
 func (cc *AndContext) Err() error {
 	select {
 	case <-cc.Done():
@@ -102,9 +102,9 @@ func (cc *AndContext) Err() error {
 	}
 }
 
-// Value implements the context.Context.Value method.
+// Value implements the [context.Context.Value] method.
 //
-// The method returns nil. To get values from Contexts call corresponding Value methods directly.
+// The method returns nil.
 func (*AndContext) Value(key any) any {
 	return nil
 }
