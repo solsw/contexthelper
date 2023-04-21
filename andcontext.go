@@ -28,7 +28,7 @@ type AndContext struct {
 // check that AndContext implements the [context.Context] interface
 var _ context.Context = &AndContext{}
 
-// NewAndContext returns a new AndContext.
+// NewAndContext returns a new [AndContext].
 func NewAndContext(ctx1, ctx2 context.Context) *AndContext {
 	return &AndContext{Ctx1: ctx1, Ctx2: ctx2}
 }
@@ -36,25 +36,25 @@ func NewAndContext(ctx1, ctx2 context.Context) *AndContext {
 // Deadline implements the [context.Context.Deadline] method.
 //
 // If both deadlines are set, the latest one is returned.
-func (cc *AndContext) Deadline() (time.Time, bool) {
-	cc.onceDeadline.Do(func() {
-		dl1, ok1 := cc.Ctx1.Deadline()
-		dl2, ok2 := cc.Ctx2.Deadline()
+func (c *AndContext) Deadline() (time.Time, bool) {
+	c.onceDeadline.Do(func() {
+		dl1, ok1 := c.Ctx1.Deadline()
+		dl2, ok2 := c.Ctx2.Deadline()
 		if !ok1 {
-			cc.deadline, cc.okDeadline = dl2, ok2
+			c.deadline, c.okDeadline = dl2, ok2
 			return
 		}
 		if !ok2 {
-			cc.deadline, cc.okDeadline = dl1, ok1
+			c.deadline, c.okDeadline = dl1, ok1
 			return
 		}
 		if dl1.After(dl2) {
-			cc.deadline, cc.okDeadline = dl1, true
+			c.deadline, c.okDeadline = dl1, true
 			return
 		}
-		cc.deadline, cc.okDeadline = dl2, true
+		c.deadline, c.okDeadline = dl2, true
 	})
-	return cc.deadline, cc.okDeadline
+	return c.deadline, c.okDeadline
 }
 
 func andDone(done1, done2 <-chan struct{}, done chan<- struct{}) {
@@ -77,26 +77,26 @@ func andDone(done1, done2 <-chan struct{}, done chan<- struct{}) {
 // Done implements the [context.Context.Done] method.
 //
 // The returned channel is closed when both contexts' Done channels are closed.
-func (cc *AndContext) Done() <-chan struct{} {
-	cc.onceDone.Do(func() {
-		if cc.Ctx1.Done() == nil && cc.Ctx2.Done() == nil {
+func (c *AndContext) Done() <-chan struct{} {
+	c.onceDone.Do(func() {
+		if c.Ctx1.Done() == nil && c.Ctx2.Done() == nil {
 			return
 		}
-		cc.done = make(chan struct{})
-		go andDone(cc.Ctx1.Done(), cc.Ctx2.Done(), cc.done)
+		c.done = make(chan struct{})
+		go andDone(c.Ctx1.Done(), c.Ctx2.Done(), c.done)
 	})
-	return cc.done
+	return c.done
 }
 
 // Err implements the [context.Context.Err] method.
 //
-// If both contexts' Errs are nil, nil is returned.
+// If [Done] is not yet closed, nil is returned.
 // Otherwise an error that wraps non-nil contexts' Errs is returned.
-func (cc *AndContext) Err() error {
+func (c *AndContext) Err() error {
 	select {
-	case <-cc.Done():
-		cc.onceErr.Do(func() { cc.err = errors.Join(cc.Ctx1.Err(), cc.Ctx2.Err()) })
-		return cc.err
+	case <-c.Done():
+		c.onceErr.Do(func() { c.err = errors.Join(c.Ctx1.Err(), c.Ctx2.Err()) })
+		return c.err
 	default:
 		return nil
 	}
@@ -104,7 +104,13 @@ func (cc *AndContext) Err() error {
 
 // Value implements the [context.Context.Value] method.
 //
-// The method returns nil.
-func (*AndContext) Value(key any) any {
-	return nil
+// If at least one Value method of combined contexts returns nil, nil is returned.
+// Otherwise [TwoValues] struct containing values from both combined contexts is returned.
+func (c *AndContext) Value(key any) any {
+	v1 := c.Ctx1.Value(key)
+	v2 := c.Ctx2.Value(key)
+	if v1 == nil || v2 == nil {
+		return nil
+	}
+	return TwoValues{v1, v2}
 }
