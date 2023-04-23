@@ -1,0 +1,5 @@
+github.com/solsw/builtinhelper v0.2.1 h1:qlRairaa6gVLuM2l6ty/2TAqMHjfuGx9EZSj5ZtRVL8=
+github.com/solsw/generichelper v0.6.0 h1:C77U5hg/fQ0GYtw3vaIIz3FsyQLNHV3krURI8frLujE=
+github.com/solsw/generichelper v0.6.0/go.mod h1:iUBwJFt0IOMEzqWiqSKchXsUGIy+cY05ZB3sMTHfWOE=
+github.com/solsw/mathhelper v0.1.0 h1:whq/z0Wihv/RmcrqQ6MVYmvKpyJloO8kzdj3zkhp/Uo=
+golang.org/x/exp v0.0.0-20230314191032-db074128a8ec h1:pAv+d8BM2JNnNctsLJ6nnZ6NqXT8N4+eauvZSb3P0I0=

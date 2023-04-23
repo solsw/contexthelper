@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/solsw/generichelper"
 )
 
 func TestOrContext_Deadline(t *testing.T) {
@@ -113,22 +115,22 @@ func TestOrContext_Value(t *testing.T) {
 		{name: "1",
 			c:    NewOrContext(context.WithValue(context.Background(), "key", 1234), context.Background()),
 			args: args{key: "key"},
-			want: TwoValues{1234, nil},
+			want: generichelper.Tuple2[any, any]{1234, nil},
 		},
 		{name: "2",
 			c:    NewOrContext(context.Background(), context.WithValue(context.Background(), "key", "1234")),
 			args: args{key: "key"},
-			want: TwoValues{nil, "1234"},
+			want: generichelper.Tuple2[any, any]{nil, "1234"},
 		},
 		{name: "3",
 			c:    NewOrContext(context.WithValue(context.Background(), "key", 1234), context.WithValue(context.Background(), "key", "1234")),
 			args: args{key: "key"},
-			want: TwoValues{1234, "1234"},
+			want: generichelper.Tuple2[any, any]{1234, "1234"},
 		},
 		{name: "4",
 			c:    NewOrContext(context.WithValue(context.Background(), "key", 1234), context.WithValue(context.Background(), "qwerty", "1234")),
 			args: args{key: "key"},
-			want: TwoValues{1234, nil},
+			want: generichelper.Tuple2[any, any]{1234, nil},
 		},
 	}
 	for _, tt := range tests {

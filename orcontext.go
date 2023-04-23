@@ -5,6 +5,8 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/solsw/generichelper"
 )
 
 // ContextOrContext returns [context.Context] combining two contexts with 'or' semantics.
@@ -97,12 +99,12 @@ func (c *OrContext) Err() error {
 // Value implements the [context.Context.Value] method.
 //
 // If Value methods of both combined contexts return nil, nil is returned.
-// Otherwise [TwoValues] struct containing values from both combined contexts is returned.
+// Otherwise [generichelper.Tuple2] struct containing values from both combined contexts is returned.
 func (c *OrContext) Value(key any) any {
 	v1 := c.Ctx1.Value(key)
 	v2 := c.Ctx2.Value(key)
 	if v1 == nil && v2 == nil {
 		return nil
 	}
-	return TwoValues{v1, v2}
+	return generichelper.Tuple2[any, any]{Item1: v1, Item2: v2}
 }
