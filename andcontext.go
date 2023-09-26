@@ -14,7 +14,7 @@ func ContextAndContext(ctx1, ctx2 context.Context) context.Context {
 	return NewAndContext(ctx1, ctx2)
 }
 
-// AndContext combines two contexts with 'and' semantics (see Done method).
+// AndContext combines two contexts with 'and' semantics (see [AndContext.Done] method).
 // AndContext implements the [context.Context] interface.
 type AndContext struct {
 	Ctx1, Ctx2   context.Context
@@ -27,7 +27,7 @@ type AndContext struct {
 	err          error
 }
 
-// check that AndContext implements the [context.Context] interface
+// check that &AndContext implements the [context.Context] interface
 var _ context.Context = &AndContext{}
 
 // NewAndContext returns a new [AndContext].
@@ -36,7 +36,6 @@ func NewAndContext(ctx1, ctx2 context.Context) *AndContext {
 }
 
 // Deadline implements the [context.Context.Deadline] method.
-//
 // If both deadlines are set, the latest one is returned.
 func (c *AndContext) Deadline() (time.Time, bool) {
 	c.onceDeadline.Do(func() {
@@ -77,8 +76,7 @@ func andDone(done1, done2 <-chan struct{}, done chan<- struct{}) {
 }
 
 // Done implements the [context.Context.Done] method.
-//
-// The returned channel is closed when both contexts' Done channels are closed.
+// The return channel is closed when both contexts' Done channels are closed.
 func (c *AndContext) Done() <-chan struct{} {
 	c.onceDone.Do(func() {
 		if c.Ctx1.Done() == nil && c.Ctx2.Done() == nil {
@@ -91,9 +89,8 @@ func (c *AndContext) Done() <-chan struct{} {
 }
 
 // Err implements the [context.Context.Err] method.
-//
 // If [Done] is not yet closed, nil is returned.
-// Otherwise an error that wraps non-nil contexts' Errs is returned.
+// Otherwise, an error that wraps non-nil contexts' Errs is returned.
 func (c *AndContext) Err() error {
 	select {
 	case <-c.Done():
@@ -105,9 +102,8 @@ func (c *AndContext) Err() error {
 }
 
 // Value implements the [context.Context.Value] method.
-//
 // If at least one Value method of combined contexts returns nil, nil is returned.
-// Otherwise [generichelper.Tuple2] struct containing values from both combined contexts is returned.
+// Otherwise, [generichelper.Tuple2] struct containing values from both combined contexts is returned.
 func (c *AndContext) Value(key any) any {
 	v1 := c.Ctx1.Value(key)
 	v2 := c.Ctx2.Value(key)
