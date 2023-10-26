@@ -89,8 +89,11 @@ func (c *AndContext) Done() <-chan struct{} {
 }
 
 // Err implements the [context.Context.Err] method.
-// If [Done] is not yet closed, nil is returned.
-// Otherwise, an error that wraps non-nil contexts' Errs is returned.
+// If [AndContext.Done] is not yet closed, nil is returned.
+// Otherwise, an error that [wraps] both contexts' [Err]s is returned.
+//
+// [Err]: https://pkg.go.dev/context#Context.Err
+// [wraps]: https://pkg.go.dev/errors#Join
 func (c *AndContext) Err() error {
 	select {
 	case <-c.Done():
