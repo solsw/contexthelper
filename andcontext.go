@@ -9,12 +9,12 @@ import (
 	"github.com/solsw/generichelper"
 )
 
-// ContextAndContext returns [context.Context] combining two contexts with 'and' semantics.
+// ContextAndContext returns [context.Context] combining two contexts with AND semantics.
 func ContextAndContext(ctx1, ctx2 context.Context) context.Context {
 	return NewAndContext(ctx1, ctx2)
 }
 
-// AndContext combines two contexts with 'and' semantics (see [AndContext.Done] method).
+// AndContext combines two contexts with AND semantics (see [AndContext.Done] method).
 // AndContext implements the [context.Context] interface.
 type AndContext struct {
 	Ctx1, Ctx2   context.Context

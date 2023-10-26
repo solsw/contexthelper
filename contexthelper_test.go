@@ -47,11 +47,11 @@ func TestValue_string(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, gotok := Value[string](tt.args.ctx, tt.args.key)
 			if got != tt.want {
-				t.Errorf("StringValue() got = %v, want %v", got, tt.want)
+				t.Errorf("Value[string]() got = %v, want %v", got, tt.want)
 				return
 			}
 			if gotok != tt.wantok {
-				t.Errorf("StringValue() gotok = %v, want %v", gotok, tt.wantok)
+				t.Errorf("Value[string]() gotok = %v, want %v", gotok, tt.wantok)
 			}
 		})
 	}

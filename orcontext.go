@@ -9,12 +9,12 @@ import (
 	"github.com/solsw/generichelper"
 )
 
-// ContextOrContext returns [context.Context] combining two contexts with 'or' semantics.
+// ContextOrContext returns [context.Context] combining two contexts with OR semantics.
 func ContextOrContext(ctx1, ctx2 context.Context) context.Context {
 	return NewOrContext(ctx1, ctx2)
 }
 
-// OrContext combines two contexts with 'or' semantics (see [OrContext.Done] method).
+// OrContext combines two contexts with OR semantics (see [OrContext.Done] method).
 // OrContext implements the [context.Context] interface.
 type OrContext struct {
 	Ctx1, Ctx2   context.Context
