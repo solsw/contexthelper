@@ -9,15 +9,10 @@ import (
 	"github.com/solsw/generichelper"
 )
 
-// ContextAndContext returns [context.Context] combining two contexts with AND semantics.
-func ContextAndContext(ctx1, ctx2 context.Context) context.Context {
-	return NewAndContext(ctx1, ctx2)
-}
-
 // AndContext combines two contexts with AND semantics (see [AndContext.Done] method).
 // AndContext implements the [context.Context] interface.
 type AndContext struct {
-	Ctx1, Ctx2   context.Context
+	ctx1, ctx2   context.Context
 	onceDeadline sync.Once
 	deadline     time.Time
 	okDeadline   bool
@@ -32,15 +27,15 @@ var _ context.Context = &AndContext{}
 
 // NewAndContext returns a new [AndContext].
 func NewAndContext(ctx1, ctx2 context.Context) *AndContext {
-	return &AndContext{Ctx1: ctx1, Ctx2: ctx2}
+	return &AndContext{ctx1: ctx1, ctx2: ctx2}
 }
 
 // Deadline implements the [context.Context.Deadline] method.
 // If both deadlines are set, the latest one is returned.
 func (c *AndContext) Deadline() (time.Time, bool) {
 	c.onceDeadline.Do(func() {
-		dl1, ok1 := c.Ctx1.Deadline()
-		dl2, ok2 := c.Ctx2.Deadline()
+		dl1, ok1 := c.ctx1.Deadline()
+		dl2, ok2 := c.ctx2.Deadline()
 		if !ok1 {
 			c.deadline, c.okDeadline = dl2, ok2
 			return
@@ -76,14 +71,15 @@ func andDone(done1, done2 <-chan struct{}, done chan<- struct{}) {
 }
 
 // Done implements the [context.Context.Done] method.
-// The return channel is closed when both contexts' Done channels are closed.
+// The return channel is closed when all non-nil Done channels of the combined contexts are closed.
+// A context with a nil Done channel (e.g. [context.Background]) is treated as already done.
 func (c *AndContext) Done() <-chan struct{} {
 	c.onceDone.Do(func() {
-		if c.Ctx1.Done() == nil && c.Ctx2.Done() == nil {
+		if c.ctx1.Done() == nil && c.ctx2.Done() == nil {
 			return
 		}
 		c.done = make(chan struct{})
-		go andDone(c.Ctx1.Done(), c.Ctx2.Done(), c.done)
+		go andDone(c.ctx1.Done(), c.ctx2.Done(), c.done)
 	})
 	return c.done
 }
@@ -97,7 +93,7 @@ func (c *AndContext) Done() <-chan struct{} {
 func (c *AndContext) Err() error {
 	select {
 	case <-c.Done():
-		c.onceErr.Do(func() { c.err = errors.Join(c.Ctx1.Err(), c.Ctx2.Err()) })
+		c.onceErr.Do(func() { c.err = errors.Join(c.ctx1.Err(), c.ctx2.Err()) })
 		return c.err
 	default:
 		return nil
@@ -105,12 +101,13 @@ func (c *AndContext) Err() error {
 }
 
 // Value implements the [context.Context.Value] method.
-// If at least one Value method of combined contexts returns nil, nil is returned.
-// Otherwise, [generichelper.Tuple2] struct containing values from both combined contexts is returned.
+// If neither combined context holds 'key', nil is returned.
+// Otherwise, a [generichelper.Tuple2][any, any] is returned whose items are the values
+// from each combined context; an item is nil if the corresponding context does not hold 'key'.
 func (c *AndContext) Value(key any) any {
-	v1 := c.Ctx1.Value(key)
-	v2 := c.Ctx2.Value(key)
-	if v1 == nil || v2 == nil {
+	v1 := c.ctx1.Value(key)
+	v2 := c.ctx2.Value(key)
+	if v1 == nil && v2 == nil {
 		return nil
 	}
 	return generichelper.Tuple2[any, any]{Item1: v1, Item2: v2}

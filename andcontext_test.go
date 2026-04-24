@@ -39,12 +39,12 @@ func TestAndContext_Deadline(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, gotOk := tt.c.Deadline()
+			if gotOk != tt.ok {
+				t.Errorf("andContext.Deadline() gotOk = %v, want %v", gotOk, tt.ok)
+			}
 			got = got.Round(time.Millisecond)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("andContext.Deadline() got = %v, want %v", got, tt.want)
-			}
-			if gotOk != tt.ok {
-				t.Errorf("andContext.Deadline() gotOk = %v, want %v", gotOk, tt.ok)
 			}
 		})
 	}
@@ -119,22 +119,22 @@ func TestAndContext_Value(t *testing.T) {
 		{name: "1",
 			c:    NewAndContext(context.WithValue(context.Background(), "key", 1234), context.Background()),
 			args: args{key: "key"},
-			want: nil,
+			want: generichelper.Tuple2[any, any]{Item1: 1234, Item2: nil},
 		},
 		{name: "2",
 			c:    NewAndContext(context.Background(), context.WithValue(context.Background(), "key", "1234")),
 			args: args{key: "key"},
-			want: nil,
+			want: generichelper.Tuple2[any, any]{Item1: nil, Item2: "1234"},
 		},
 		{name: "3",
 			c:    NewAndContext(context.WithValue(context.Background(), "key", 1234), context.WithValue(context.Background(), "key", "1234")),
 			args: args{key: "key"},
-			want: generichelper.Tuple2[any, any]{1234, "1234"},
+			want: generichelper.Tuple2[any, any]{Item1: 1234, Item2: "1234"},
 		},
 		{name: "4",
 			c:    NewAndContext(context.WithValue(context.Background(), "key", 1234), context.WithValue(context.Background(), "qwerty", "1234")),
 			args: args{key: "key"},
-			want: nil,
+			want: generichelper.Tuple2[any, any]{Item1: 1234, Item2: nil},
 		},
 	}
 	for _, tt := range tests {
