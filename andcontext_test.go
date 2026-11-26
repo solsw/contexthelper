@@ -10,43 +10,51 @@ import (
 )
 
 func TestAndContext_Deadline(t *testing.T) {
+	bg := context.Background()
+	early, late := time.Unix(1, 0), time.Unix(2, 0)
+	first, cancelFirst := context.WithDeadline(bg, early)
+	defer cancelFirst()
+	second, cancelSecond := context.WithDeadline(bg, late)
+	defer cancelSecond()
+	live, cancelLive := context.WithCancel(bg)
+	defer cancelLive()
+
 	tests := []struct {
-		name string
-		c    *AndContext
-		want time.Time
-		ok   bool
+		name        string
+		left, right context.Context
+		want        time.Time
+		ok          bool
 	}{
-		{name: "1",
-			c:  NewAndContext(context.Background(), context.Background()),
-			ok: false,
-		},
-		{name: "2",
-			c:    NewAndContext(ctxWithTimeout(500*time.Millisecond), context.Background()),
-			want: time.Now().Add(500 * time.Millisecond).Round(time.Millisecond),
-			ok:   true,
-		},
-		{name: "3",
-			c:    NewAndContext(context.Background(), ctxWithTimeout(250*time.Millisecond)),
-			want: time.Now().Add(250 * time.Millisecond).Round(time.Millisecond),
-			ok:   true,
-		},
-		{name: "4",
-			c:    NewAndContext(ctxWithTimeout(2*time.Second), ctxWithTimeout(4*time.Second)),
-			want: time.Now().Add(4 * time.Second).Round(time.Millisecond),
-			ok:   true,
-		},
+		{"neither", bg, bg, time.Time{}, false},
+		{"first only", first, bg, early, true},
+		{"second only", bg, second, late, true},
+		{"earlier first", first, second, late, true},
+		{"earlier second", second, first, late, true},
+		{"unbounded first", live, second, time.Time{}, false},
+		{"unbounded second", first, live, time.Time{}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, gotOk := tt.c.Deadline()
-			if gotOk != tt.ok {
-				t.Errorf("andContext.Deadline() gotOk = %v, want %v", gotOk, tt.ok)
-			}
-			got = got.Round(time.Millisecond)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("andContext.Deadline() got = %v, want %v", got, tt.want)
+			got, ok := NewAndContext(tt.left, tt.right).Deadline()
+			if !got.Equal(tt.want) || ok != tt.ok {
+				t.Errorf("Deadline() = (%v, %t), want (%v, %t)", got, ok, tt.want, tt.ok)
 			}
 		})
+	}
+}
+
+func TestAndContext_ChildDeadline(t *testing.T) {
+	bg := context.Background()
+	expired, cancelExpired := context.WithDeadline(bg, time.Unix(1, 0))
+	defer cancelExpired()
+	live, cancelLive := context.WithCancel(bg)
+	defer cancelLive()
+
+	parent := NewAndContext(expired, live)
+	child, cancelChild := context.WithDeadline(parent, time.Unix(2, 0))
+	defer cancelChild()
+	if err := child.Err(); err != context.DeadlineExceeded {
+		t.Errorf("child.Err() = %v, want context.DeadlineExceeded", err)
 	}
 }
 

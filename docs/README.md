@@ -47,25 +47,41 @@ n, ok := contexthelper.Value[int](ctx, userKey{})
 // n == 0, ok == false  (value present but wrong type)
 ```
 
+## Combining contexts
+
+Both constructors take two parent contexts. When both parents have a non-nil
+`Done()` channel, `AndContext` waits for both channels to close and `OrContext`
+waits for either one. If only one parent has a non-nil channel, the combined
+context returns that channel directly, without starting a forwarding goroutine.
+If both channels are nil, the combined context's `Done()` and `Err()` both return nil.
+
+| Parent deadlines | `AndContext.Deadline()` | `OrContext.Deadline()` |
+| --- | --- | --- |
+| Both parents have deadlines | Later deadline | Earlier deadline |
+| One has a deadline and the other's `Done()` is nil (e.g. `context.Background()`) | Sole deadline | Sole deadline |
+| One has a deadline and the other is cancelable with no deadline | No deadline | Sole deadline |
+| Neither has a deadline | No deadline | No deadline |
+
+For example, a parent created with `context.WithCancel(context.Background())` can remain active after
+the other parent's timeout expires. In that case `AndContext` has no deadline,
+so a child created with `context.WithTimeout(andCtx, d)` can enforce its own timeout.
+
+`Err()` returns nil until the combined `Done()` channel closes. The first call
+after closure returns the sole non-nil parent error directly or joins both
+parent errors if both are present. Later calls return the same error, even if a
+second parent has since been canceled. Use `errors.Is` to check for
+`context.Canceled` or `context.DeadlineExceeded` in either case.
+
+`Value(key)` returns nil when neither parent has a value for the key. Otherwise
+it returns a [`generichelper.Tuple2[any, any]`](https://pkg.go.dev/github.com/solsw/generichelper#Tuple2).
+`Item1` holds the first parent's value and `Item2` the second parent's value.
+A missing value appears as nil in its parent's position.
+
 ## AndContext
 
 ```go
 func NewAndContext(ctx1, ctx2 context.Context) *AndContext
 ```
-
-`AndContext` combines two contexts with **AND** semantics: it is considered
-done only when *both* combined contexts are done.
-
-- **Done** — the channel returned by `Done` is closed when all non-nil `Done`
-  channels of the combined contexts are closed. A context with a nil `Done`
-  channel (e.g. [`context.Background`](https://pkg.go.dev/context#Background))
-  is treated as already done.
-- **Deadline** — if both contexts have a deadline, the **latest** one is returned.
-- **Err** — `nil` until `Done` is closed; afterwards it returns an error that
-  [joins](https://pkg.go.dev/errors#Join) both contexts' `Err`s.
-- **Value** — returns a [`generichelper.Tuple2[any, any]`](https://pkg.go.dev/github.com/solsw/generichelper#Tuple2)
-  holding each combined context's value for the key (an item is `nil` if that
-  context does not hold the key), or `nil` if neither context holds the key.
 
 ```go
 ctx1, cancel1 := context.WithCancel(context.Background())
@@ -76,10 +92,11 @@ defer cancel2()
 andCtx := contexthelper.NewAndContext(ctx1, ctx2)
 
 cancel1()
-// andCtx is NOT done yet — ctx2 is still active.
+fmt.Println(andCtx.Err()) // <nil> because ctx2 is still active
 
 cancel2()
-<-andCtx.Done() // now closed — both contexts are done.
+<-andCtx.Done()
+fmt.Println(errors.Is(andCtx.Err(), context.Canceled)) // true
 ```
 
 ## OrContext
@@ -87,19 +104,6 @@ cancel2()
 ```go
 func NewOrContext(ctx1, ctx2 context.Context) *OrContext
 ```
-
-`OrContext` combines two contexts with **OR** semantics: it is considered done
-as soon as *either* combined context is done.
-
-- **Done** — the channel returned by `Done` is closed when either context's
-  `Done` channel is closed.
-- **Deadline** — if both contexts have a deadline, the **earliest** one is returned.
-- **Err** — `nil` until `Done` is closed; afterwards it returns the non-nil
-  `Err`(s) of the combined contexts, [joined](https://pkg.go.dev/errors#Join)
-  when both are done.
-- **Value** — returns a [`generichelper.Tuple2[any, any]`](https://pkg.go.dev/github.com/solsw/generichelper#Tuple2)
-  holding each combined context's value for the key (an item is `nil` if that
-  context does not hold the key), or `nil` if neither context holds the key.
 
 ```go
 ctx1, cancel1 := context.WithCancel(context.Background())
@@ -110,5 +114,6 @@ defer cancel2()
 orCtx := contexthelper.NewOrContext(ctx1, ctx2)
 
 cancel1()
-<-orCtx.Done() // closed as soon as ctx1 is done.
+<-orCtx.Done()
+fmt.Println(orCtx.Err() == context.Canceled) // true because only ctx1 is done
 ```

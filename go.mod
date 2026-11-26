@@ -2,4 +2,4 @@ module github.com/solsw/contexthelper
 
 go 1.22
 
-require github.com/solsw/generichelper v0.20.0
+require github.com/solsw/generichelper v0.21.0

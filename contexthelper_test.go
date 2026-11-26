@@ -3,7 +3,35 @@ package contexthelper
 import (
 	"context"
 	"testing"
+	"time"
 )
+
+func TestSingleCancelableParent(t *testing.T) {
+	bg := context.Background()
+	canceled, cancel := context.WithCancel(bg)
+	cancel()
+	expired, release := context.WithDeadline(bg, time.Unix(1, 0))
+	defer release()
+
+	for _, parent := range []context.Context{canceled, expired} {
+		for name, combined := range map[string]context.Context{
+			"and/left":  NewAndContext(parent, bg),
+			"and/right": NewAndContext(bg, parent),
+			"or/left":   NewOrContext(parent, bg),
+			"or/right":  NewOrContext(bg, parent),
+		} {
+			t.Run(name+"/"+parent.Err().Error(), func(t *testing.T) {
+				if combined.Done() != parent.Done() {
+					t.Error("Done() should return the sole cancelable parent's channel")
+				}
+				<-combined.Done()
+				if err := combined.Err(); err != parent.Err() {
+					t.Errorf("Err() = %T %v, want the original %T", err, err, parent.Err())
+				}
+			})
+		}
+	}
+}
 
 func TestValue_string(t *testing.T) {
 	key1 := "key1"

@@ -2,7 +2,6 @@ package contexthelper
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -17,7 +16,7 @@ type AndContext struct {
 	deadline     time.Time
 	okDeadline   bool
 	onceDone     sync.Once
-	done         chan struct{}
+	done         <-chan struct{}
 	onceErr      sync.Once
 	err          error
 }
@@ -32,29 +31,27 @@ func NewAndContext(ctx1, ctx2 context.Context) *AndContext {
 
 // Deadline implements the [context.Context.Deadline] method.
 // If both deadlines are set, the latest one is returned.
+// A sole deadline applies only when the other context has a nil Done channel.
 func (c *AndContext) Deadline() (time.Time, bool) {
 	c.onceDeadline.Do(func() {
 		dl1, ok1 := c.ctx1.Deadline()
 		dl2, ok2 := c.ctx2.Deadline()
-		if !ok1 {
-			c.deadline, c.okDeadline = dl2, ok2
-			return
-		}
-		if !ok2 {
-			c.deadline, c.okDeadline = dl1, ok1
-			return
-		}
-		if dl1.After(dl2) {
+		switch {
+		case ok1 && ok2:
+			c.deadline, c.okDeadline = dl2, true
+			if dl1.After(dl2) {
+				c.deadline = dl1
+			}
+		case ok1 && c.ctx2.Done() == nil:
 			c.deadline, c.okDeadline = dl1, true
-			return
+		case ok2 && c.ctx1.Done() == nil:
+			c.deadline, c.okDeadline = dl2, true
 		}
-		c.deadline, c.okDeadline = dl2, true
 	})
 	return c.deadline, c.okDeadline
 }
 
 func andDone(done1, done2 <-chan struct{}, done chan<- struct{}) {
-	// done1 and done2 are not both nil here
 	for done1 != nil || done2 != nil {
 		select {
 		case _, ok1 := <-done1:
@@ -75,25 +72,22 @@ func andDone(done1, done2 <-chan struct{}, done chan<- struct{}) {
 // A context with a nil Done channel (e.g. [context.Background]) is treated as already done.
 func (c *AndContext) Done() <-chan struct{} {
 	c.onceDone.Do(func() {
-		if c.ctx1.Done() == nil && c.ctx2.Done() == nil {
-			return
-		}
-		c.done = make(chan struct{})
-		go andDone(c.ctx1.Done(), c.ctx2.Done(), c.done)
+		c.done = combineDone(c.ctx1.Done(), c.ctx2.Done(), andDone)
 	})
 	return c.done
 }
 
 // Err implements the [context.Context.Err] method.
 // If [AndContext.Done] is not yet closed, nil is returned.
-// Otherwise, an error that [wraps] both contexts' [Err]s is returned.
+// A sole non-nil [Err] is returned directly. If both contexts have errors,
+// the returned error [wraps] both.
 //
 // [Err]: https://pkg.go.dev/context#Context.Err
 // [wraps]: https://pkg.go.dev/errors#Join
 func (c *AndContext) Err() error {
 	select {
 	case <-c.Done():
-		c.onceErr.Do(func() { c.err = errors.Join(c.ctx1.Err(), c.ctx2.Err()) })
+		c.onceErr.Do(func() { c.err = combineErrors(c.ctx1.Err(), c.ctx2.Err()) })
 		return c.err
 	default:
 		return nil

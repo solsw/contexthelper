@@ -2,7 +2,6 @@ package contexthelper
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -17,7 +16,7 @@ type OrContext struct {
 	deadline     time.Time
 	okDeadline   bool
 	onceDone     sync.Once
-	done         chan struct{}
+	done         <-chan struct{}
 	onceErr      sync.Once
 	err          error
 }
@@ -54,7 +53,6 @@ func (c *OrContext) Deadline() (time.Time, bool) {
 }
 
 func orDone(done1, done2 <-chan struct{}, done chan<- struct{}) {
-	// done1 and done2 are not both nil here
 	select {
 	case <-done1:
 	case <-done2:
@@ -66,11 +64,7 @@ func orDone(done1, done2 <-chan struct{}, done chan<- struct{}) {
 // The return channel is closed when either one of contexts' Done channels is closed.
 func (c *OrContext) Done() <-chan struct{} {
 	c.onceDone.Do(func() {
-		if c.ctx1.Done() == nil && c.ctx2.Done() == nil {
-			return
-		}
-		c.done = make(chan struct{})
-		go orDone(c.ctx1.Done(), c.ctx2.Done(), c.done)
+		c.done = combineDone(c.ctx1.Done(), c.ctx2.Done(), orDone)
 	})
 	return c.done
 }
@@ -85,7 +79,7 @@ func (c *OrContext) Done() <-chan struct{} {
 func (c *OrContext) Err() error {
 	select {
 	case <-c.Done():
-		c.onceErr.Do(func() { c.err = errors.Join(c.ctx1.Err(), c.ctx2.Err()) })
+		c.onceErr.Do(func() { c.err = combineErrors(c.ctx1.Err(), c.ctx2.Err()) })
 		return c.err
 	default:
 		return nil
